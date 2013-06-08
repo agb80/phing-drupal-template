@@ -764,7 +764,7 @@ This target sets up many of the common resources used throughout the build.
 All other targets except dependencies for this target should depend on this
 unless specifically stated why. -->
   <target name="init"
-          depends="load-properties, setup-dirs, make, setup-filesets"
+          depends="load-properties, setup-dirs, make, setup-mz-profile, setup-filesets"
           unless="project.initialized">
     <!-- Set property to prevent target from being executed multiple times -->
     <property name="project.initialized" value="true"/>
@@ -809,8 +809,6 @@ file.  If this file is located in a subdirectory - e.g. when using Phing Drupal 
 
 NB: This only works if the subdirectory is directly within the Drupal
 root directory. -->
-
-      <echo msg="HAHAHAHAHA ${project.basedir}/../build.properties" />
         <if>
           <!-- If `build.properties` exists then assume we have a
                project root directory -->
@@ -895,7 +893,7 @@ in the `build.properties` file. Execution can also be skipped by setting the
 This is part of the initialization of the build. This target should only be
 called from `init` target. -->
   <target name="make"
-          depends="load-properties, setup-phing-drush"
+          depends="load-properties, setup-phing-drush, setup-mz-make"
           if="drupal.make.file">
     <if>
       <or>
@@ -1203,6 +1201,19 @@ part of make target.-->
     </drush>
   </target>
 
+
+  <!-- ### Run migrate procedures -->
+  <target name="run-migrate"
+          depends="setup-phing-drush">
+
+    <drush command="mi" assume="yes">
+      <option name="all"></option>
+      <option name="rollback"></option>
+    </drush>
+
+  </target>
+
+
   <!-- ### Clone a git repository -->
   <target name="setup-git-repo">
     <!-- Only clone if repository does not exist already -->
@@ -1274,6 +1285,16 @@ part of make target.-->
       <property name="repo.revision"
                 value="${mz.make.repository.revision}" />
     </phingcall>
+  </target>
+
+  <target name="setup-mz-profile"
+          depends="setup-mz-make,load-properties,make" >
+    <!-- Copy the install profile bundled with the make file to the
+         appropriate directory. -->
+    <copy todir="${project.drupal.dir}/profiles/${drupal.profile}/">
+      <fileset dir="${drupal.profile.dir}">
+      </fileset>
+    </copy>
   </target>
 
    <!-- ### Setup Rhino
