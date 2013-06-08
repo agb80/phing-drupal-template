@@ -1,5 +1,6 @@
-build.properties
 coverage/*
 logs/*
 tests/*
 tools/*
+site/*
+build/*

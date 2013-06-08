@@ -43,7 +43,7 @@ installed as follows:
     pear channel-discover components.ez.no
     pear channel-discover pear.symfony-project.com
 
-    pear install phing/phing
+    pear install phing/phing-2.4.12
     pear install  -a phpmd/PHP_PMD
     pear install phpunit/phpcpd
     pear install phpunit/phploc
@@ -100,6 +100,7 @@ Drush Make and Simpletest support has been sponsored by [DBC](http://www.dbc.dk/
 </a>
 -->
 
+<!-- *Do not use any later versions than 2.4.12 due to [a bug in Phing](http://www.phing.info/trac/ticket/958)*. -->
 <project name="phing-drupal" default="build" phingVersion="2.4.11">
 
 <!-- ## Main targets -->
@@ -115,7 +116,6 @@ Do not run `docs` for now. Generating documentation eats up memory and build
 time and is largely obsolete when using GitHub. -->
   <target name="build" depends="init,
                                 clean,
-                                verify,
                                 analyze" />
 
 <!-- ### Verify code consistency
@@ -124,7 +124,6 @@ Make sure that our code is clean and functional. -->
   <target name="verify" depends="init,
                                  clean,
                                  lint-php-custom,
-                                 lint-js-custom,
                                  lint-css-custom,
                                  check-php-debug,
                                  check-js-debug,
@@ -235,34 +234,9 @@ from parent `lint-js` targets. -->
   <target name="setup-jslint4java"
           depends="init"
           unless="project.jslint4java.setup">
-    <property name="jslint4java.dir"
-              value="${project.toolsdir}/jslint4java" />
-    <php function="basename" returnProperty="jslint4java.basename">
-      <param value="${jslint4java.url}" />
-      <!-- We assume that the version of jslint4java used is a distribution
-           where the filename ends in `-dist.zip` -->
-      <param value="-dist.zip" />
-    </php>
 
-    <!-- Download and unpack jslint4java -->
-    <mkdir dir="${jslint4java.dir}" />
-    <php function="basename" returnProperty="jslint4java.zipfile">
-      <param value="${jslint4java.url}" />
-    </php>
-    <httpget url="${jslint4java.url}"
-             dir="${jslint4java.dir}"
-             proxy="${phing.httpget.proxy}" />
-    <unzip file="${jslint4java.dir}/${jslint4java.zipfile}"
-           todir="${jslint4java.dir}" />
+<!-- HAS BEEN DELETED BECAUSE IT COULDN'T GET EXCLUDED?? -->
 
-    <!-- Other targets use this property to determine the location of the
-         `jslint4java.jar` file -->
-    <property name="jslint4java.file"
- value="${jslint4java.dir}/${jslint4java.basename}/${jslint4java.basename}.jar"/>
-
-    <!-- Set property to prevent unnecessary additional invocations of this
-         target -->
-    <property name="project.jslint4java.setup" value="true" />
   </target>
 
   <!-- #### Setup jslint -->
@@ -532,6 +506,7 @@ statistics. -->
     <phingcall target="setup-git-repo">
       <property name="repo.dir" value="${project.toolsdir}/phing-phploc"/>
       <property name="repo.url" value="${phing.phploc.repository.url}" />
+      <property name="repo.revision" value="${phing.phploc.repository.revision}" />
     </phingcall>
     <!-- Register the custom Phing task -->
     <taskdef name="phploc" classname="PHPLocTask"
@@ -743,7 +718,7 @@ Execution of this target can be skipped by setting the
         <echo msg="You must set the drupal.uri property to get simpletests working." />
       </else>
     </if>
-    
+
   </target>
 
 <!-- ### Generate documentation -->
@@ -834,6 +809,8 @@ file.  If this file is located in a subdirectory - e.g. when using Phing Drupal 
 
 NB: This only works if the subdirectory is directly within the Drupal
 root directory. -->
+
+      <echo msg="HAHAHAHAHA ${project.basedir}/../build.properties" />
         <if>
           <!-- If `build.properties` exists then assume we have a
                project root directory -->
@@ -927,7 +904,7 @@ called from `init` target. -->
       </or>
       <then>
         <!-- Delete any prexisting builds -->
-        <delete dir="${project.drupal.dir}"/>
+        <delete dir="${project.drupal.dir}" failonerror="false" />
 
         <!-- If the make file does not include a core Drupal project we need
              to download one separately. This should be defined in
@@ -957,7 +934,12 @@ called from `init` target. -->
                  appropriate directory. -->
             <copy todir="${project.drupal.dir}/profiles/${drupal.profile}/">
               <fileset dir="${project.basedir}">
-                <include name="${drupal.profile}.*" />
+                <exclude name="${drupal.make.dir}/**" />
+                <exclude name="build/**" />
+                <exclude name="coverage/**" />
+                <exclude name="logs/**" />
+                <exclude name="tests/**" />
+                <exclude name="tools/**" />
               </fileset>
             </copy>
           </then>
@@ -967,19 +949,6 @@ called from `init` target. -->
               <param>${drupal.make.dir}</param>
             </drush>
           </else>
-        </if>
-
-        <if>
-          <isset property="drupal.make.rewritebase" />
-          <then>
-            <reflexive file="${project.drupal.dir}/.htaccess">
-              <filterchain>
-                <replaceregexp>
-                  <regexp pattern="# RewriteBase [\w/]*" replace="RewriteBase ${drupal.make.rewritebase}"/>
-                </replaceregexp>
-              </filterchain>
-            </reflexive>
-          </then>
         </if>
 
         <!-- Set property to prevent target from being executed multiple times -->
@@ -1044,6 +1013,7 @@ called from `init` target. -->
       <exclude name="**/*.field_group.inc" />
       <exclude name="**/*.layouts.inc" />
       <exclude name="**/*.pages_default.inc" />
+      <exclude name="**/*.panelizer.inc" />
       <exclude name="**/*.panels_default.inc" />
       <exclude name="**/*.strongarm.inc" />
       <exclude name="**/*.views_default.inc" />
@@ -1086,6 +1056,44 @@ called from `init` target. -->
     </fileset>
 
   </target>
+
+  <!-- ### Setup permissions
+
+Set permissions for certain files correctly after it has been built. This is
+required to support using the site after it has been built e.g. for conducting
+tests and site allow it to be rebuilt later on.
+
+By default the built site will be owned by the Jenkins user and allow
+others to read. We allow read, write and execute access for all to give users
+such as apache running the webserver the necessary permissions. -->
+    <target name="setup-permissions"
+            depends="setup-dirs">
+      <!-- Allow write access to files directory. -->
+      <chmod mode="0777" failonerror="false">
+        <fileset dir="${project.drupal.dir}">
+          <patternset>
+            <include name="sites/default"/>
+            <include name="sites/default/**/*"/>
+          </patternset>
+        </fileset>
+      </chmod>
+      <!-- If the build uses SQLite then we update permissions to the
+           database file and the directory containing the file. -->
+      <if>
+        <contains string="${drupal.db.url}" substring="sqlite"/>
+        <then>
+          <php expression="dirname(substr('${drupal.db.url}', 7));"
+               returnProperty="drupal.sqlite.dir" />
+          <php expression="basename(substr('${drupal.db.url}', 7));"
+               returnProperty="drupal.sqlite.file" />
+
+          <echo msg="********* SQLite dir is at ${drupal.sqlite.dir} and file at ${drupal.sqlite.file}"/>
+
+          <chmod file="${drupal.sqlite.dir}" mode="0777" failonerror="true"/>
+          <chmod file="${drupal.sqlite.dir}/${drupal.sqlite.file}" mode="0777" failonerror="true"/>
+        </then>
+      </if>
+    </target>
 
 <!-- ### Clean working environment  -->
   <target name="clean"
@@ -1131,13 +1139,31 @@ Configuration of which installation profile and database to use in done in
       <option name="db-url">${drupal.db.url}</option>
       <param>${drupal.profile}</param>
     </drush>
-    <!-- Fix permissions for the default site directory and settings. The
-         owner must be able to delete the directories during subsequent
-         builds. -->
-    <chmod file="${project.drupal.dir}/sites/default/"
-           mode="0755" failonerror="true"/>
-    <chmod file="${project.drupal.dir}/sites/default/default.settings.php"
-           mode="0755" failonerror="true"/>
+
+    <phingcall target="setup-permissions"/>
+
+    <!-- Enable RewriteBase in .htaccess if the installation is to be
+exposed through Apache with virtual document root as clean urls are enabled
+by default.
+
+Keep legacy support for drupal.make.rewritebase when this was handled as a
+part of make target.-->
+    <condition property="drupal.rewritebase"
+               value="${drupal.make.rewritebase}">
+      <isset property="drupal.make.rewritebase"/>
+    </condition>
+    <if>
+      <isset property="drupal.rewritebase" />
+      <then>
+        <reflexive file="${project.drupal.dir}/.htaccess">
+          <filterchain>
+            <replaceregexp>
+              <regexp pattern="# RewriteBase [\w/]*" replace="RewriteBase ${drupal.rewritebase}"/>
+            </replaceregexp>
+          </filterchain>
+        </reflexive>
+      </then>
+    </if>
 
     <!-- Set property to prevent target from being executed multiple times -->
     <property name="project.installed" value="true"/>
