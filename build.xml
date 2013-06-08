@@ -1262,6 +1262,20 @@ part of make target.-->
     <property name="drush.root" value="${project.drupal.dir}"/>
   </target>
 
+  <!-- ### Checkout make files from git -->
+  <target name="setup-mz-make"
+          depends="setup-dirs" >
+    <!-- Clone the project -->
+    <phingcall target="setup-git-repo">
+      <property name="repo.dir"
+                value="${project.builddir}/mz_make"/>
+      <property name="repo.url"
+                value="${mz.make.repository.url}" />
+      <property name="repo.revision"
+                value="${mz.make.repository.revision}" />
+    </phingcall>
+  </target>
+
    <!-- ### Setup Rhino
 
 [Mozilla Rhino](http://www.mozilla.org/rhino/) is an open-source implementation of JavaScript written in Java. -->
