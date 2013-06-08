@@ -114,9 +114,13 @@ This is the default build target.
 
 Do not run `docs` for now. Generating documentation eats up memory and build
 time and is largely obsolete when using GitHub. -->
-  <target name="build" depends="init,
+<!--   <target name="build" depends="init,
                                 clean,
-                                analyze" />
+                                analyze" /> -->
+
+  <target name="build" depends="init,
+                                site-install,
+                                run-migrate" />
 
 <!-- ### Verify code consistency
 
@@ -1101,6 +1105,7 @@ such as apache running the webserver the necessary permissions. -->
     <!-- Delete any existing artifacts from a previous build.
          Do not delete builddir. It may contain the build file! -->
     <delete dir="${project.toolsdir}"/>
+    <delete dir="${project.builddir}/mz_make"/>
     <delete dir="${project.coveragedir}"/>
     <delete dir="${project.logdir}"/>
     <delete dir="${project.testdir}"/>
@@ -1115,10 +1120,10 @@ such as apache running the webserver the necessary permissions. -->
     </delete>
 
     <!-- Recreate directories for artifacts -->
-    <mkdir dir="${project.toolsdir}"/>
+<!--     <mkdir dir="${project.toolsdir}"/>
     <mkdir dir="${project.coveragedir}"/>
     <mkdir dir="${project.logdir}"/>
-    <mkdir dir="${project.testdir}"/>
+    <mkdir dir="${project.testdir}"/> -->
 
     <!-- Set property to prevent target from being executed multiple times -->
     <property name="project.cleaned" value="true"/>
