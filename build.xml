@@ -118,9 +118,11 @@ time and is largely obsolete when using GitHub. -->
                                 clean,
                                 analyze" /> -->
 
-  <target name="build" depends="init,
-                                site-install,
-                                run-migrate" />
+  <target name="build"
+          description="Build the site from git, install it, and migrate content"
+          depends="init,
+                   site-install,
+                   run-migrate" />
 
 <!-- ### Verify code consistency
 
@@ -898,6 +900,7 @@ This is part of the initialization of the build. This target should only be
 called from `init` target. -->
   <target name="make"
           depends="load-properties, setup-phing-drush, setup-mz-make"
+          description="Build the site from a git makefile into a subdirectory"
           if="drupal.make.file">
     <if>
       <or>
@@ -1088,9 +1091,6 @@ such as apache running the webserver the necessary permissions. -->
                returnProperty="drupal.sqlite.dir" />
           <php expression="basename(substr('${drupal.db.url}', 7));"
                returnProperty="drupal.sqlite.file" />
-
-          <echo msg="********* SQLite dir is at ${drupal.sqlite.dir} and file at ${drupal.sqlite.file}"/>
-
           <chmod file="${drupal.sqlite.dir}" mode="0777" failonerror="true"/>
           <chmod file="${drupal.sqlite.dir}/${drupal.sqlite.file}" mode="0777" failonerror="true"/>
         </then>
@@ -1136,7 +1136,8 @@ This initializes a Drupal site using a installation profile.
 Configuration of which installation profile and database to use in done in
 `build.properties`. -->
   <target name="site-install"
-          depends="init, setup-phing-drush"
+          depends="setup-phing-drush"
+          description="Installs the site"
           unless="project.installed">
     <drush command="site-install" assume="yes">
       <option name="db-url">${drupal.db.url}</option>
@@ -1209,11 +1210,12 @@ part of make target.-->
 
   <!-- ### Run migrate procedures -->
   <target name="run-migrate"
+          description="Migrate content into the installed site"
           depends="setup-phing-drush">
 
     <drush command="mi" assume="yes">
       <option name="all"></option>
-      <option name="rollback"></option>
+      <option name="update"></option>
     </drush>
 
   </target>
